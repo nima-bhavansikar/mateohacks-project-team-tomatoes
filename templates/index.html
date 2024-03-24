@@ -1,0 +1,40 @@
+{% extends "template.html" %}
+
+{% block body %}
+<form action="/" method="post">
+    <div id="main-content">
+        <div id="input-section">
+            <div class="translate-bar">
+                <select name="original-languages" class="language-dropdown">
+                    {% for language in available_languages %}
+                        <option value="{{ language }}">{{ language }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <h1>Original Text</h1>
+            <input type="text" name="user-input">
+        </div>
+        <div id="translated-section">
+            <select name="translated-languages" class="language-dropdown">
+                {% for language in available_languages %}
+                    {% if language != "English (slang)" %}
+                        <option value="{{ language }}">{{ language }}</option>
+                    {% endif %}
+                {% endfor %}
+            </select>
+            <h1>Translated Text</h1>
+            {% if translated %}
+                <input type="text" name="translated-output" value="{{ translated }}" readonly>
+            {% else %}
+                <input type="text" name="translated-output" readonly>
+            {% endif %}
+        </div>
+        <div id="translate-button">
+            <button type="submit">Interpret</button>
+        </div>
+    </div>
+</form>
+<div class="q-a">
+    
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+* {
+    font-family: "Lato", sans-serif;
+    font-weight: 400;
+    font-style: normal;
+}
+
+#main-section {
+    display: flex;
+    flex-direction: row;
+    
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    flex: 1;
+
+    margin: 1vh 5vw 0 5vw;
+}
+
+#input-section, #translated-section {
+    display: flex;
+    flex-direction: column;
+
+    padding: 5em 5em 5em 5em;
+}
