@@ -10,40 +10,42 @@ class Translator():
     urban_dict_query = "http://api.urbandictionary.com/v0/define?term="
     openai_query = "https://api.openai.com/v1/chat/completions"
     
-    def __init__(self, api_key, openai_model="gpt-3.5-turbo-0125"):
+    def __init__(self, api_key, openai_model="gpt-4o"):
         self.openai_model = openai_model
         self.eng_dict = enchant.Dict("en_US")
         
         self.api_key = api_key
         
-    def fetch_slang_def(self, *words, upvoted_req=200, ratio_req=2.0, char_count_req=50) -> list:
+    def fetch_slang_def(self, *words, upvoted_req=200, downvoted_max=200, ratio_req=2.0, char_count_req=50) -> list:
         """Fetches the most commonly acceptable definition of a slang word by determining whether
     there are more than 100+ upvotes and the ratio of upvoted to downvoted is
     greater than or equal to 1.5 (customizable ratio and upvote requirement)."""
         slang_words = []
         for word in words:
-            
             if self.eng_dict.check(word) is True: # if word is formal
                 slang_words.append(None)
                 continue
             
             defined_words = requests.get(Translator.urban_dict_query + word, headers=Translator.request_header).json()
+            
             if defined_words["list"]:  # if any defined words exist in urban dict
                 for word_entry in defined_words["list"]:  # go through all the word entries
-                    upvoted = int(word_entry['thumbs_up'])
+                    upvoted = int(word_entry["thumbs_up"])
+                    downvoted = int(word_entry["thumbs_down"])
+                    
                     definition: str = word_entry['definition']
-                    definition = definition.replace('[', '').replace(']', '')
+                    definition = definition.replace('[', '').replace(']', '') # remove possible hyperlinks denoted by brackets
                     
                     char_count = len(definition.replace(" ", ""))
                     
                     try:
                         # perchance thumbs down could be 0
-                        vote_ratio = upvoted / int(word_entry['thumbs_down'])
+                        vote_ratio = upvoted / downvoted
                         
                     except ZeroDivisionError:
                         vote_ratio = float(upvoted)
                         
-                    if upvoted >= upvoted_req and vote_ratio >= ratio_req and char_count <= char_count_req:
+                    if upvoted >= upvoted_req and downvoted <= downvoted_max and vote_ratio >= ratio_req and char_count <= char_count_req:
                         definition = definition.replace('(', '').replace(')', '')
                         definition = f"({word}: {definition})"
                         slang_words.append(definition)
@@ -53,7 +55,7 @@ class Translator():
                         # word definition does not meet standards
                         continue
             elif not defined_words["list"]:
-                # return empty list
+                # word does not exist in urban
                 slang_words.append(None)
             else:
                 # search for next word if not all words found yet
@@ -63,9 +65,12 @@ class Translator():
         
         return slang_words
 
-# user input: ['i', 'am', 'being', 'so', 'fr']
-# dict results: [None, None, None, None, 'very realistic']
-# expected: ['i', 'am', 'being', 'so', 'very realistic']
+
+    """
+    User Prompt (as list): ["why", "you", "cappin"]
+    UrbanDictionary Get Results: [None, None, "lying"]
+    Expected Translation: ["why", "you", "lying"]
+    """
 
     def __intercept_slang_def(self, orig_input: str, slang_term: str) -> Optional[str]:
         """Determines whether to add the slang definition in place of the user input
@@ -82,7 +87,7 @@ class Translator():
         user_input_list = user_input.split()
         slang_terms = self.fetch_slang_def(*user_input_list)
         
-        # OPTIMIZE SOON
+        # TODO OPTIMIZE SOON
         replaced_user_input = list(map(self.__intercept_slang_def, user_input_list, slang_terms))
 
         if any(slang_terms): # if there is at least 1 value from urban dict
@@ -95,16 +100,10 @@ class Translator():
                 },
                 {
                     "role": "system",
-                    "content": f"You are given either a term, phrase, or a sentence with slang. Given this sentence in {initial_language} where the slang \
-                    word is shown followed by its definition that are in parentheses in place of the actual slang word, rewrite the user\'s input \
-                    to be more formal in the {target_language} language and shorten the length of your input per slang word to nearly the same (1-3 words) length of the user's input \
-                    (e.g., replacing user's 'cappin' with 'outright lying'). Do this by removing any parentheses that make up the word and definitions of the \
-                    slang words and replace the respective parentheses with a formal word, phrase, or sentence (depending on its length) that appropriately replace \
-                    the user's input, removing any unneeded parentheses if they are around the word/phrase. Write ONLY the translation of the user's input in {target_language} by using the definition briefly and do not explain anything of how it is translated and why. \
-                    If there are no parentheses with slang words and their definitions (e.g., (yt: Abbreviated version of Youtube.)), give the exact input the user \
-                    has inputted word for word without changing any part of their text. If there are any words that are not slang (e.g., pronouns like 'you'), simply use the word \
-                    given in the parentheses and do not translate it with its definition. Reformat your response such that it is grammatically correct with the language and is formatted \
-                    as if you are conversing formally with another person."
+                    "content": f"You are given a piece of text in {initial_language} that may contain slang; you must convert this text formally into {target_language}. \
+                    The slang will be in parentheses for you to identify them, listing the actual word that should be used in the text, followed by the definition of the slang. \
+                    With this contextual evidence, rewrite the given piece of text, while preserving as much of the original sentence structure as possible, \
+                    to write the piece of text formally."
                 },
                 {
                     "role": "user",
@@ -162,7 +161,7 @@ class Translator():
     
 if __name__ == '__main__':
     openai_key = os.getenv("OPENAI_API_KEY")
-    x = Translator(OPENAI_API_KEY=openai_key)
+    x = Translator(openai_key)
     while True:
         try:
             translation_direction = int(input("Enter translation direction (1: Slang to Language, 2: Language to Language): "))
