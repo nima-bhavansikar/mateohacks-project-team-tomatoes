@@ -1,5 +1,11 @@
-__pycache__/
-Include/
-Lib/
-Scripts/
-pyvenv.cfg
+*
+!.gitignore
+!README.md
+
+static/*
+templates/*
+
+!app.py
+!backend.py
+
+!langs.txt
